@@ -1,0 +1,97 @@
+name: GitHub Action Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      action_url:
+        description: GitHub action to audit
+        required: true
+        type: string
+
+permissions:
+  security-events: write
+
+  # only required for workflows in private repositories
+  actions: read
+  contents: read
+
+jobs:
+
+  # SEMGREP
+  # -------
+
+  SemGrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone action
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo clone ${{ inputs.action_url }} ./action
+
+      - name: Install SemGrep
+        shell: bash
+        run: |
+          python3 -m pip install semgrep
+
+      - name: Run SemGrep Scan
+        shell: bash
+        run: |
+          semgrep scan --config auto ./action
+
+      - name: Run SemGrep Scan v2
+        shell: bash
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep login
+          semgrep scan --config "p/security-audit" ./action --verbose
+
+  # TRIVY
+  # -----
+
+  Trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone action
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo clone ${{ inputs.action_url }} ./action
+
+      - name: Run Filesystem Scan
+        shell: bash
+        run: |
+          cd ./action
+          docker run ghcr.io/aquasecurity/trivy:latest \
+            fs \
+            --quiet \
+            --no-progress \
+            --security-checks vuln,secret,config \
+            --ignore-unfixed \
+            .  # cannot make it work with ./action...
+
+      - name: Check Dockerfile presence
+        id: check_dockerfile_presence
+        shell: bash
+        run: |
+          if [ -f "./action/Dockerfile" ]; then
+            echo "dockerfile_presence=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Container Scan
+        if: ${{ steps.check_dockerfile_presence.outputs.dockerfile_presence == 'true' }}
+        shell: bash
+        run: |
+          docker build -t action-image:current ./action
+          docker run ghcr.io/aquasecurity/trivy:latest \
+            image \
+            --quiet \
+            --no-progress \
+            --security-checks vuln,secret,config \
+            --ignore-unfixed \
+            --severity HIGH,CRITICAL \
+            action-image:current
+
