@@ -1,0 +1,116 @@
+name: GitHub Action Whitelisting
+description: Request the whitelisting of an external GitHub action
+title: "I would like the following GitHub action to be whitelisted: ACTION NAME"
+labels: ["action request"]
+assignees: []
+body:
+
+# Preamble
+# --------
+
+  - type: markdown
+    attributes:
+      value: |
+        GitHub actions are quite immature in today's industry, and unfortunately we need to make sure not to abuse on
+        the number of external GitHub actions we use as they can represent a huge security issue for the company.
+        Thanks for taking the time to fill out this request form properly!
+  - type: input
+    attributes:
+      label: Action URL
+      description: Link towards the GitHub action repository
+      placeholder: ex. https://github.com/slackapi/slack-github-action
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why do you need this action?
+      description: |
+        Please make sure the action you want us to allow fills a real and serious need, neither something funny for your
+        issues or PRs, nor something you can implement yourself quickly in another way.
+      value: I would like this action to be allowed on all of the organization's repositories because ...
+    validations:
+      required: true
+
+# Repository statistics
+# ---------------------
+
+  - type: checkboxes
+    attributes:
+      label: Code dangerousity
+      description: This is just for information, you can tick checkboxes without fear of seeing the action automatically denied.
+      options:
+        - label: The action sends information to the outside (for example using curl)
+          required: false
+        - label: The action needs write access on the repository which uses it
+          required: false
+        - label: The action has security alerts enabled on its repository
+          required: false
+  - type: dropdown
+    attributes:
+      label: Commits frequency
+      description: When was the latest human commit on the action repository?
+      options:
+        - Less than a week ago
+        - Less than a month ago
+        - Less than a year ago
+        - A too long amount of time ago for this action to be whitelisted
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Release frequency
+      description: When was the latest release on the action repository?
+      options:
+        - Less than a week ago
+        - Less than a month ago
+        - Less than a year ago
+        - A too long amount of time ago for this action to be whitelisted
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Stars
+      description: How many stars does the action repository have?
+      options:
+        - 0 <> 10
+        - 10 <> 100
+        - 100 <> 1000
+        - More than 1000
+
+# GitHub Action Audit results
+# ---------------------------
+
+  - type: markdown
+    attributes:
+      value: |
+        For what comes next, we need you to run an audit workflow on the GitHub action you want us to whitelist.
+        Just copy/paste the action URL as input for the `workflow_dispatch` of the Github Action Audit workflow you can find [here](https://github.com/tanguy-platsec/gha-audit/actions/workflows/audit.yml).
+  - type: textarea
+    attributes:
+      label: Relevant SemGrep log outputs
+      description: Please copy and paste any relevant log output from the SemGrep step. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant Trivy log outputs for the filesystem analysis
+      description: Please copy and paste any relevant log output from the Trivy filesystem analysis step. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant Trivy log outputs for the container analysis
+      description: Please copy and paste any relevant log output from the Trivy container analysis step. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+
+# Issue submission
+# ----------------
+
+  - type: checkboxes
+    attributes:
+      label: Confirmation
+      options:
+        - label: I confirm I really need this action and I am aware of the action security state.
+          required: true
