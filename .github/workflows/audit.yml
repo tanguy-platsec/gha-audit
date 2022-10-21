@@ -8,13 +8,6 @@ on:
         required: true
         type: string
 
-permissions:
-  security-events: write
-
-  # only required for workflows in private repositories
-  actions: read
-  contents: read
-
 jobs:
 
   # SEMGREP
@@ -40,14 +33,6 @@ jobs:
         run: |
           semgrep scan --config auto ./action
 
-      - name: Run SemGrep Scan v2
-        shell: bash
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-        run: |
-          semgrep login
-          semgrep scan --config "p/security-audit" ./action --verbose
-
   # TRIVY
   # -----
 
@@ -61,17 +46,25 @@ jobs:
         run: |
           gh repo clone ${{ inputs.action_url }} ./action
 
+      - name: Install Trivy
+        shell: bash
+        run: |
+          sudo apt install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt update
+          sudo apt install trivy
+          trivy --version
+
       - name: Run Filesystem Scan
         shell: bash
         run: |
-          cd ./action
-          docker run ghcr.io/aquasecurity/trivy:latest \
-            fs \
+          trivy fs \
             --quiet \
             --no-progress \
             --security-checks vuln,secret,config \
             --ignore-unfixed \
-            .  # cannot make it work with ./action...
+            ./action
 
       - name: Check Dockerfile presence
         id: check_dockerfile_presence
@@ -85,13 +78,12 @@ jobs:
         if: ${{ steps.check_dockerfile_presence.outputs.dockerfile_presence == 'true' }}
         shell: bash
         run: |
-          docker build -t action-image:current ./action
-          docker run ghcr.io/aquasecurity/trivy:latest \
-            image \
+          docker build -t action:current ./action
+          trivy image \
             --quiet \
             --no-progress \
             --security-checks vuln,secret,config \
             --ignore-unfixed \
             --severity HIGH,CRITICAL \
-            action-image:current
+            action:current
 
